@@ -1,0 +1,37 @@
+[
+  {
+    "TableName": "user_chats",
+    "AttributeDefinitions": [
+      { "AttributeName": "user_id", "AttributeType": "S" },
+      { "AttributeName": "chat_id", "AttributeType": "S" }
+    ],
+    "KeySchema": [
+      { "AttributeName": "user_id", "KeyType": "HASH" },
+      { "AttributeName": "chat_id", "KeyType": "RANGE" }
+    ],
+    "ProvisionedThroughput": { "ReadCapacityUnits": 5, "WriteCapacityUnits": 5 }
+  },
+  {
+    "TableName": "chats",
+    "AttributeDefinitions": [
+      { "AttributeName": "chat_id", "AttributeType": "S" }
+    ],
+    "KeySchema": [{ "AttributeName": "chat_id", "KeyType": "HASH" }],
+    "ProvisionedThroughput": { "ReadCapacityUnits": 5, "WriteCapacityUnits": 5 }
+  },
+  {
+    "TableName": "chat_messages",
+    "AttributeDefinitions": [
+      { "AttributeName": "chat_id", "AttributeType": "S" },
+      { "AttributeName": "sort_key", "AttributeType": "S" }
+    ],
+    "KeySchema": [
+      { "AttributeName": "chat_id", "KeyType": "HASH" },
+      { "AttributeName": "sort_key", "KeyType": "RANGE" }
+    ],
+    "ProvisionedThroughput": {
+      "ReadCapacityUnits": 10,
+      "WriteCapacityUnits": 10
+    }
+  }
+]
