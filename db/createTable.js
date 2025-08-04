@@ -1,9 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import ErrorHandler from "../utils/ErrorHandler.js";
-import Logger from "../utils/UtilityLogger.js";
-import ScyllaDb from "../utils/ScyllaDb.js";
-import DateTime from "../utils/DateTime.js";
+import { ErrorHandler, Logger, ScyllaDb, DateTime } from "../utils/index.js";
 
 async function createAllTablesFromJson() {
   try {
@@ -20,7 +17,8 @@ async function createAllTablesFromJson() {
     const raw = await fs.readFile(path.resolve("./tables.json"), "utf-8");
     const schemas = JSON.parse(raw);
 
-    for (const schema of schemas) {
+    // ✅ Iterate over object values
+    for (const schema of Object.values(schemas)) {
       try {
         Logger.writeLog({
           flag: "startup",
@@ -30,7 +28,9 @@ async function createAllTablesFromJson() {
             time: DateTime.now(),
           },
         });
+
         await ScyllaDb.createTable(schema);
+
         Logger.writeLog({
           flag: "success",
           action: "createTable",
@@ -43,6 +43,7 @@ async function createAllTablesFromJson() {
         ErrorHandler.add_error(`Failed to create table ${schema.TableName}`, {
           error: err.message,
         });
+
         Logger.writeLog({
           flag: "system_error",
           action: "createTable",
@@ -60,6 +61,7 @@ async function createAllTablesFromJson() {
     ErrorHandler.add_error("Failed to create tables from JSON", {
       error: err.message,
     });
+
     Logger.writeLog({
       flag: "system_error",
       action: "createAllTablesFromJson",
@@ -69,6 +71,7 @@ async function createAllTablesFromJson() {
         time: DateTime.now(),
       },
     });
+
     return false;
   }
 }

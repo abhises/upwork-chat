@@ -1,37 +1,118 @@
-[
-  {
+{
+  "user_chats": {
     "TableName": "user_chats",
+    "PK": "user_id",
+    "SK": "chat_id",
     "AttributeDefinitions": [
       { "AttributeName": "user_id", "AttributeType": "S" },
-      { "AttributeName": "chat_id", "AttributeType": "S" }
+      { "AttributeName": "chat_id", "AttributeType": "S" },
+      { "AttributeName": "is_critical", "AttributeType": "S" },
+      { "AttributeName": "featured", "AttributeType": "S" },
+      { "AttributeName": "last_message_ts", "AttributeType": "N" }
     ],
     "KeySchema": [
       { "AttributeName": "user_id", "KeyType": "HASH" },
       { "AttributeName": "chat_id", "KeyType": "RANGE" }
     ],
-    "ProvisionedThroughput": { "ReadCapacityUnits": 5, "WriteCapacityUnits": 5 }
-  },
-  {
-    "TableName": "chats",
-    "AttributeDefinitions": [
-      { "AttributeName": "chat_id", "AttributeType": "S" }
+    "GlobalSecondaryIndexes": [
+      {
+        "IndexName": "CriticalChatsIndex",
+        "KeySchema": [
+          { "AttributeName": "is_critical", "KeyType": "HASH" },
+          { "AttributeName": "user_id", "KeyType": "RANGE" }
+        ],
+        "Projection": { "ProjectionType": "ALL" },
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 5,
+          "WriteCapacityUnits": 5
+        }
+      },
+      {
+        "IndexName": "FeaturedChatsIndex",
+        "KeySchema": [
+          { "AttributeName": "featured", "KeyType": "HASH" },
+          { "AttributeName": "user_id", "KeyType": "RANGE" }
+        ],
+        "Projection": { "ProjectionType": "ALL" },
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 5,
+          "WriteCapacityUnits": 5
+        }
+      },
+      {
+        "IndexName": "RecentChatsIndex",
+        "KeySchema": [
+          { "AttributeName": "user_id", "KeyType": "HASH" },
+          { "AttributeName": "last_message_ts", "KeyType": "RANGE" }
+        ],
+        "Projection": { "ProjectionType": "ALL" },
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 5,
+          "WriteCapacityUnits": 5
+        }
+      }
     ],
-    "KeySchema": [{ "AttributeName": "chat_id", "KeyType": "HASH" }],
-    "ProvisionedThroughput": { "ReadCapacityUnits": 5, "WriteCapacityUnits": 5 }
+    "ProvisionedThroughput": {
+      "ReadCapacityUnits": 5,
+      "WriteCapacityUnits": 5
+    }
   },
-  {
-    "TableName": "chat_messages",
+
+  "chats": {
+    "TableName": "chats",
+    "PK": "chat_id",
     "AttributeDefinitions": [
       { "AttributeName": "chat_id", "AttributeType": "S" },
-      { "AttributeName": "sort_key", "AttributeType": "S" }
+      { "AttributeName": "created_by", "AttributeType": "S" }
+    ],
+    "KeySchema": [{ "AttributeName": "chat_id", "KeyType": "HASH" }],
+    "GlobalSecondaryIndexes": [
+      {
+        "IndexName": "ChatsByCreator",
+        "KeySchema": [{ "AttributeName": "created_by", "KeyType": "HASH" }],
+        "Projection": { "ProjectionType": "ALL" },
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 5,
+          "WriteCapacityUnits": 5
+        }
+      }
+    ],
+    "ProvisionedThroughput": {
+      "ReadCapacityUnits": 5,
+      "WriteCapacityUnits": 5
+    }
+  },
+
+  "chat_messages": {
+    "TableName": "chat_messages",
+    "PK": "chat_id",
+    "SK": "message_ts",
+    "AttributeDefinitions": [
+      { "AttributeName": "chat_id", "AttributeType": "S" },
+      { "AttributeName": "message_ts", "AttributeType": "N" },
+      { "AttributeName": "message_id", "AttributeType": "S" }
     ],
     "KeySchema": [
       { "AttributeName": "chat_id", "KeyType": "HASH" },
-      { "AttributeName": "sort_key", "KeyType": "RANGE" }
+      { "AttributeName": "message_ts", "KeyType": "RANGE" }
+    ],
+    "GlobalSecondaryIndexes": [
+      {
+        "IndexName": "MessageIdIndex",
+        "KeySchema": [
+          { "AttributeName": "chat_id", "KeyType": "HASH" },
+          { "AttributeName": "message_id", "KeyType": "RANGE" }
+        ],
+        "Projection": { "ProjectionType": "ALL" },
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 10,
+          "WriteCapacityUnits": 10
+        }
+      }
     ],
     "ProvisionedThroughput": {
       "ReadCapacityUnits": 10,
       "WriteCapacityUnits": 10
     }
   }
-]
+}

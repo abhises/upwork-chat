@@ -1,9 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import ErrorHandler from "../utils/ErrorHandler.js";
-import Logger from "../utils/UtilityLogger.js";
-import ScyllaDb from "../utils/ScyllaDb.js";
-import DateTime from "../utils/DateTime.js";
+import { ErrorHandler, Logger, ScyllaDb, DateTime } from "../utils/index.js";
 
 async function deleteAllTablesFromJson() {
   try {
@@ -20,7 +17,8 @@ async function deleteAllTablesFromJson() {
     const raw = await fs.readFile(path.resolve("./tables.json"), "utf-8");
     const schemas = JSON.parse(raw);
 
-    for (const schema of schemas) {
+    // ✅ Convert object to array of schemas
+    for (const schema of Object.values(schemas)) {
       const tableName = schema.TableName;
       try {
         Logger.writeLog({
@@ -33,6 +31,7 @@ async function deleteAllTablesFromJson() {
         });
 
         await ScyllaDb.deleteTable(tableName); // assumes you have a deleteTable method
+
         Logger.writeLog({
           flag: "success",
           action: "deleteTable",
@@ -45,6 +44,7 @@ async function deleteAllTablesFromJson() {
         ErrorHandler.add_error(`Failed to delete table ${tableName}`, {
           error: err.message,
         });
+
         Logger.writeLog({
           flag: "system_error",
           action: "deleteTable",
@@ -62,6 +62,7 @@ async function deleteAllTablesFromJson() {
     ErrorHandler.add_error("Failed to delete tables from JSON", {
       error: err.message,
     });
+
     Logger.writeLog({
       flag: "system_error",
       action: "deleteAllTablesFromJson",
@@ -71,6 +72,7 @@ async function deleteAllTablesFromJson() {
         time: DateTime.now(),
       },
     });
+
     return false;
   }
 }

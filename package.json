@@ -4,9 +4,10 @@
   "main": "CHAT.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node test/index.js",
     "createTable": "node db/createTable.js",
-    "deleteTable": "node db/deleteTable.js"
+    "deleteTable": "node db/deleteTable.js",
+    "seed": "node db/seed/seed.js"
   },
   "keywords": [],
   "author": "",
