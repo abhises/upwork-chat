@@ -11,7 +11,20 @@
 // import createGroupChat_test from "./createGroupChat_test.js";
 // import updateChatMetadata_test from "./updateChatMetadata_test.js";
 // import updateNotificationSettings_test from "./updateNotificationSettings_test.js";
-import reactToMessage_test from "./reactToMessage_test.js";
+// import reactToMessage_test from "./reactToMessage_test.js";
+// import sendMessage_test from "./sendMessage_test.js";
+// import sendVoiceMessage_test from "./sendVoiceMessage_test.js";
+// import linkPollToMessage_test from "./linkPollToMessage_test.js";
+// import sendMixedMessage_test from "./sendMixedMessage_test.js";
+// import validateMessageLength_test from "./validateMessageLength_test.js";
+// import filterBannedWords_test from "./filterBannedWords_test.js";
+// import runEditMessageTests from "./editMessage_test.js";
+// import runMarkMessageReadTests from "./markMessageRead_test.js";
+// import runUnreadCountTests from "./getUnreadCount_test.js";
+// import sendProductRecommendation_test from "./sendProductRecommendation_test.js";
+// import lockMessageReplies_test from "./lockMessageReplies_test.js";
+// import attachTaskToMessage_test from "./attachTaskToMessage_test.js";
+import sendVirtualGift_test from "./sendVirtualGift_test.js";
 export {
   //   createChat_test,
   //   createChimeChat_test,
@@ -26,5 +39,18 @@ export {
   // createGroupChat_test,
   // updateChatMetadata_test,
   // updateNotificationSettings_test,
-  reactToMessage_test,
+  // reactToMessage_test,
+  // sendMessage_test,
+  // sendVoiceMessage_test,
+  // linkPollToMessage_test,
+  // sendMixedMessage_test,
+  // validateMessageLength_test,
+  // filterBannedWords_test,
+  // runEditMessageTests,
+  // runMarkMessageReadTests,
+  // runUnreadCountTests,
+  // sendProductRecommendation_test,
+  // lockMessageReplies_test,
+  // attachTaskToMessage_test,
+  sendVirtualGift_test,
 };

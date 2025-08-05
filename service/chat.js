@@ -767,7 +767,7 @@ export default class ChatManager {
 
   static async searchGroups(searchQuery) {
     try {
-      const { searchQuery: q } = Formatting.sanitizeValidate({
+      const { searchQuery: q } = SafeUtils.sanitizeValidate({
         searchQuery: { value: searchQuery, type: "string", required: true },
       });
       // Placeholder: perform search in Elasticsearch index 'chats'
@@ -849,6 +849,640 @@ export default class ChatManager {
         message: err.message,
         critical: false,
         data: { chatId, messageId, emoji, count },
+      });
+      return false;
+    }
+  }
+
+  static async sendMessage(chatId, payload) {
+    try {
+      const { chatId: cid, payload: pl } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        payload: { value: payload, type: "object", required: true },
+      });
+      const messageId = `msg#${DateTime.generateRelativeTimestamp(
+        "yyyyMMddHHmmssSSS"
+      )}`;
+      const timestamp = Date.now();
+      // console.log(timestamp);
+      const item = {
+        chat_id: cid,
+        message_id: messageId,
+        message_ts: timestamp,
+        content_type: pl.contentType || "text",
+        content: pl,
+        reactions: {},
+        created_at: DateTime.now(),
+      };
+      await ScyllaDb.putItem("chat_messages", item);
+      return item;
+    } catch (err) {
+      ErrorHandler.add_error("sendMessage failed", {
+        error: err.message,
+        chatId,
+        payload,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendMessage",
+        message: err.message,
+        critical: true,
+        data: { chatId, payload },
+      });
+      return null;
+    }
+  }
+
+  static async sendVoiceMessage(chatId, mediaUrl) {
+    try {
+      const { chatId: cid, mediaUrl: url } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        mediaUrl: { value: mediaUrl, type: "string", required: true },
+      });
+
+      //it creates mees for invalid chat id
+      // const chatRes = await ScyllaDb.getItem("chat_messages", {
+      //   chat_id: cid,
+      //   message_ts: Date.now(),
+      // });
+
+      // if (!chatRes || !chatRes.Item) {
+      //   throw new Error(`Chat with ID '${cid}' does not exist`);
+      // }
+      const messageId = `msg#${DateTime.generateRelativeTimestamp(
+        "yyyyMMddHHmmssSSS"
+      )}`;
+      const timestamp = Date.now();
+      //  #TODO in future we will use DateTime.now("number")
+
+      const item = {
+        chat_id: cid,
+        message_id: messageId,
+        message_ts: timestamp,
+        content_type: "voice",
+        content: { media_url: url },
+        reactions: {},
+        created_at: DateTime.now(),
+      };
+      await ScyllaDb.putItem("chat_messages", item);
+      return item;
+    } catch (err) {
+      ErrorHandler.add_error("sendVoiceMessage failed", {
+        error: err.message,
+        chatId,
+        mediaUrl,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendVoiceMessage",
+        message: err.message,
+        critical: true,
+        data: { chatId, mediaUrl },
+      });
+      return null;
+    }
+  }
+  static async linkPollToMessage(chatId, messageId, pollId) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        pollId: pid,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        pollId: { value: pollId, type: "string", required: true },
+      });
+
+      // 🟡 Step 1: Query using GSI to find message_ts
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid} & message_id=${mid}`
+        );
+      }
+
+      const message = messages[0];
+
+      console.log("message", message);
+
+      // 🔒 Defensive check
+
+      // 🟢 Step 2: Modify content
+      const content = { ...message.content, poll_id: pid };
+
+      // 🔵 Step 3: Update original record using primary key
+      await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts, // MUST use message_ts as RANGE key
+        },
+        {
+          content,
+        }
+      );
+
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("linkPollToMessage failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        pollId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "linkPollToMessage",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, pollId },
+      });
+      return false;
+    }
+  }
+
+  static async sendMixedMessage(chatId, payload) {
+    try {
+      const { chatId: cid, payload: pl } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        payload: { value: payload, type: "object", required: true },
+      });
+      const messageId = `msg#${DateTime.generateRelativeTimestamp(
+        "yyyyMMddHHmmssSSS"
+      )}`;
+      //SHould replace with DateTime.now in future
+      const timestamp = Date.now();
+      const item = {
+        chat_id: cid,
+        message_id: messageId,
+        message_ts: timestamp,
+        content_type: "mixed",
+        content: pl,
+        reactions: {},
+        created_at: DateTime.now(),
+      };
+      await ScyllaDb.putItem("chat_messages", item);
+      return item;
+    } catch (err) {
+      ErrorHandler.add_error("sendMixedMessage failed", {
+        error: err.message,
+        chatId,
+        payload,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendMixedMessage",
+        message: err.message,
+        critical: true,
+        data: { chatId, payload },
+      });
+      return null;
+    }
+  }
+  static validateMessageLength(text, maxLength = 1000) {
+    try {
+      const { text: t } = SafeUtils.sanitizeValidate({
+        text: { value: text, type: "string", required: true },
+      });
+      if (t.length > maxLength) {
+        Logger.writeLog({
+          flag: "warn",
+          action: "validateMessageLength",
+          message: `Message length ${t.length} exceeds max ${maxLength}`,
+        });
+        return false;
+      }
+      return true;
+    } catch (err) {
+      Logger.writeLog({
+        flag: "system_error",
+        action: "validateMessageLength",
+        message: err.message,
+      });
+      return false;
+    }
+  }
+
+  static filterBannedWords(text) {
+    try {
+      const { text: t } = SafeUtils.sanitizeValidate({
+        text: { value: text, type: "string", required: true },
+      });
+      // Placeholder banned-words list; replace with your real list or config
+      const bannedWords = ["badword1", "badword2", "badword3"];
+      let sanitized = t;
+      for (const word of bannedWords) {
+        const pattern = new RegExp(`\\b${word}\\b`, "gi");
+        sanitized = sanitized.replace(pattern, "****");
+      }
+      return sanitized;
+    } catch (err) {
+      Logger.writeLog({
+        flag: "system_error",
+        action: "filterBannedWords",
+        message: err.message,
+      });
+      return text;
+    }
+  }
+
+  static async editMessage(chatId, messageId, newContent) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        newContent: content,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        newContent: { value: newContent, type: "object", required: true },
+      });
+
+      // 🟡 Step 1: Query GSI to get message_ts
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid} & message_id=${mid}`
+        );
+      }
+
+      const message = messages[0];
+      const timestamp = DateTime.now();
+
+      // 🔵 Step 2: Update using PK and SK (chat_id + message_ts)
+      const result = await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts, // use correct RANGE key
+        },
+        {
+          content: content,
+          edited_at: timestamp,
+        }
+      );
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("editMessage failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        newContent,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "editMessage",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, newContent },
+      });
+      return false;
+    }
+  }
+
+  static async markMessageRead(chatId, messageId, userId) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        userId: uid,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        userId: { value: userId, type: "string", required: true },
+      });
+
+      // 🟡 Step 1: Use GSI to get message_ts
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid} & message_id=${mid}`
+        );
+      }
+
+      const ts = messages[0].message_ts;
+
+      // 🟢 Step 2: Fetch user's settings
+      const userRes = await ScyllaDb.getItem("userSettings", {
+        user_id: uid,
+      });
+
+      const receipts = userRes?.read_receipts || {};
+      receipts[cid] = ts;
+
+      // 🔵 Step 3: Update receipts
+      const result = await ScyllaDb.updateItem(
+        "userSettings",
+        { user_id: uid },
+        {
+          read_receipts: receipts,
+        }
+      );
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("markMessageRead failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        userId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "markMessageRead",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, userId },
+      });
+      return false;
+    }
+  }
+
+  static async getUnreadCount(userId, chatId) {
+    try {
+      const { userId: uid, chatId: cid } = SafeUtils.sanitizeValidate({
+        userId: { value: userId, type: "string", required: true },
+        chatId: { value: chatId, type: "string", required: true },
+      });
+
+      // 🟡 Step 1: Fetch last read timestamp from userSettings
+      const settings = await ScyllaDb.getItem("userSettings", {
+        user_id: uid,
+      });
+      const lastReadTs = settings?.read_receipts?.[cid] || 0;
+      console.log("lastReadTs", lastReadTs);
+
+      // 🟢 Step 2: Query chat_messages for messages with timestamp > lastReadTs
+      const result = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_ts > :ts",
+        { ":cid": cid, ":ts": lastReadTs },
+        { Select: "COUNT" }
+      );
+
+      return result.Count || 0;
+    } catch (err) {
+      ErrorHandler.add_error("getUnreadCount failed", {
+        error: err.message,
+        userId,
+        chatId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "getUnreadCount",
+        message: err.message,
+        critical: false,
+        data: { userId, chatId },
+      });
+      return 0;
+    }
+  }
+
+  static async sendProductRecommendation(chatId, productData) {
+    try {
+      const { chatId: cid, productData: pd } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        productData: { value: productData, type: "object", required: true },
+      });
+      const messageId = `msg#${DateTime.generateRelativeTimestamp(
+        "yyyyMMddHHmmssSSS"
+      )}`;
+      const timestamp = Date.now();
+      // DateTime.now() has to be added in near future
+      const item = {
+        chat_id: cid,
+        message_id: messageId,
+        message_ts: timestamp,
+        content_type: "product_recommendation",
+        content: { product_recommendation: pd },
+        reactions: {},
+        created_at: DateTime.now(),
+      };
+      await ScyllaDb.putItem("chat_messages", item);
+      return item;
+    } catch (err) {
+      ErrorHandler.add_error("sendProductRecommendation failed", {
+        error: err.message,
+        chatId,
+        productData,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendProductRecommendation",
+        message: err.message,
+        critical: true,
+        data: { chatId, productData },
+      });
+      return null;
+    }
+  }
+  static async lockMessageReplies(chatId, messageId, lock = true) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        lock: shouldLock,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        lock: { value: lock, type: "boolean", required: false, default: true },
+      });
+
+      // 🔍 Step 1: Query message_ts using MessageIdIndex
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid}, message_id=${mid}`
+        );
+      }
+
+      const message = messages[0];
+
+      // 🛠️ Step 2: Update using composite PK (chat_id, message_ts)
+      const result = await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts,
+        },
+        {
+          locked: shouldLock,
+        }
+      );
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("lockMessageReplies failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        lock,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "lockMessageReplies",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, lock },
+      });
+      return false;
+    }
+  }
+
+  static async attachTaskToMessage(chatId, messageId, taskId) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        taskId: tid,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        taskId: { value: taskId, type: "string", required: true },
+      });
+
+      // 🔍 Step 1: Get message using MessageIdIndex to retrieve message_ts
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid}, message_id=${mid}`
+        );
+      }
+
+      const message = messages[0];
+      const updatedContent = {
+        ...message.content,
+        task_id: tid,
+      };
+
+      // 🛠️ Step 2: Update item with task_id
+      const result = await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts,
+        },
+        {
+          content: updatedContent,
+        }
+      );
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("attachTaskToMessage failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        taskId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "attachTaskToMessage",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, taskId },
+      });
+      return false;
+    }
+  }
+  static async sendVirtualGift(chatId, messageId, giftData) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        giftData: gd,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        giftData: { value: giftData, type: "object", required: true },
+      });
+
+      // 🟡 Step 1: Fetch message via GSI to retrieve message_ts
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid}, message_id=${mid}`
+        );
+      }
+
+      const message = messages[0];
+      const updatedContent = {
+        ...message.content,
+        gift: gd,
+      };
+
+      // 🔵 Step 2: Update content
+      const result = await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts,
+        },
+        {
+          content: updatedContent,
+        }
+      );
+
+      // 📦 Optional logging
+      Logger.writeLog({
+        flag: "info",
+        action: "sendVirtualGift",
+        message: `Virtual gift attached to message ${mid}`,
+        data: { giftData: gd },
+      });
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("sendVirtualGift failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        giftData,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendVirtualGift",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, giftData },
       });
       return false;
     }
