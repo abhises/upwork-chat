@@ -57,7 +57,18 @@
       "WriteCapacityUnits": 5
     }
   },
-
+  "userSettings": {
+    "TableName": "userSettings",
+    "PK": "user_id",
+    "AttributeDefinitions": [
+      { "AttributeName": "user_id", "AttributeType": "S" }
+    ],
+    "KeySchema": [{ "AttributeName": "user_id", "KeyType": "HASH" }],
+    "ProvisionedThroughput": {
+      "ReadCapacityUnits": 5,
+      "WriteCapacityUnits": 5
+    }
+  },
   "chats": {
     "TableName": "chats",
     "PK": "chat_id",
