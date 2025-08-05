@@ -1487,4 +1487,256 @@ export default class ChatManager {
       return false;
     }
   }
+  static async sendTip(chatId, messageId, amount, currency = "AUD") {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        amount: amt,
+        currency: cur,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        amount: { value: amount, type: "numeric", required: true },
+        currency: {
+          value: currency,
+          type: "string",
+          required: false,
+          default: "AUD",
+        },
+      });
+
+      // Step 1: Query message_ts via GSI
+      const results = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!results || results.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid}, message_id=${mid}`
+        );
+      }
+
+      const message = results[0];
+      const transaction = { amount: amt, currency: cur, type: "tip" };
+
+      // Step 2: Merge into existing content
+      const updatedContent = {
+        ...message.content,
+        transaction,
+      };
+
+      // Step 3: Update with primary keys
+      const result = await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts,
+        },
+        {
+          content: updatedContent,
+        }
+      );
+
+      Logger.writeLog({
+        flag: "info",
+        action: "sendTip",
+        message: `Tip recorded for message ${mid}`,
+        data: { transaction },
+      });
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("sendTip failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        amount,
+        currency,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendTip",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, amount, currency },
+      });
+      return false;
+    }
+  }
+  static async sendPaidMedia(chatId, payload) {
+    try {
+      const { chatId: cid, payload: pl } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        payload: { value: payload, type: "object", required: true },
+      });
+      const messageId = `msg#${DateTime.generateRelativeTimestamp(
+        "yyyyMMddHHmmssSSS"
+      )}`;
+      const timestamp = Date.now();
+      // should replace by this in future const timestamp = DateTime.now("number");
+
+      const item = {
+        chat_id: cid,
+        message_id: messageId,
+        message_ts: timestamp,
+        content_type: "paid_media",
+        content: pl,
+        pay_to_view: true,
+        reactions: {},
+        created_at: DateTime.now(),
+      };
+      await ScyllaDb.putItem("chat_messages", item);
+      return item;
+    } catch (err) {
+      ErrorHandler.add_error("sendPaidMedia failed", {
+        error: err.message,
+        chatId,
+        payload,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendPaidMedia",
+        message: err.message,
+        critical: true,
+        data: { chatId, payload },
+      });
+      return null;
+    }
+  }
+
+  static async updateChatAccess(chatId, accessLevel) {
+    try {
+      const { chatId: cid, accessLevel: lvl } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        accessLevel: { value: accessLevel, type: "string", required: true },
+      });
+
+      // 🟢 Use data format expected by your custom updateItem
+      const result = await ScyllaDb.updateItem(
+        "chats",
+        { chat_id: cid },
+        { access_level: lvl }
+      );
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("updateChatAccess failed", {
+        error: err.message,
+        chatId,
+        accessLevel,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "updateChatAccess",
+        message: err.message,
+        critical: false,
+        data: { chatId, accessLevel },
+      });
+      return false;
+    }
+  }
+  static async createEventChat(params) {
+    try {
+      const {
+        createdBy,
+        participants,
+        eventId,
+        eventPrice,
+        name,
+        description,
+      } = SafeUtils.sanitizeValidate({
+        createdBy: { value: params.createdBy, type: "string", required: true },
+        participants: {
+          value: params.participants,
+          type: "array",
+          required: true,
+        },
+        eventId: { value: params.eventId, type: "string", required: true },
+        eventPrice: {
+          value: params.eventPrice,
+          type: "numeric",
+          required: true,
+        },
+        name: {
+          value: params.name,
+          type: "string",
+          required: false,
+          default: null,
+        },
+        description: {
+          value: params.description,
+          type: "string",
+          required: false,
+          default: null,
+        },
+      });
+      const chatId = `chat#${DateTime.generateRelativeTimestamp(
+        "yyyyMMddHHmmss"
+      )}`;
+      const item = {
+        chat_id: chatId,
+        is_group: true,
+        created_by: createdBy,
+        participants,
+        name,
+        description,
+        event_id: eventId,
+        event_price: eventPrice,
+        access_level: "pay-per-event",
+        created_at: DateTime.now(),
+      };
+      await ScyllaDb.putItem("chats", item);
+      return item;
+    } catch (err) {
+      ErrorHandler.add_error("createEventChat failed", {
+        error: err.message,
+        params,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "createEventChat",
+        message: err.message,
+        critical: true,
+        data: { params },
+      });
+      return null;
+    }
+  }
+
+  static async updateMembershipTiers(chatId, tiers) {
+    try {
+      const { chatId: cid, tiers: t } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        tiers: { value: tiers, type: "array", required: true },
+      });
+
+      const result = await ScyllaDb.updateItem(
+        "chats",
+        { chat_id: cid },
+        {
+          membership_tiers: t,
+        }
+      );
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("updateMembershipTiers failed", {
+        error: err.message,
+        chatId,
+        tiers,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "updateMembershipTiers",
+        message: err.message,
+        critical: false,
+        data: { chatId, tiers },
+      });
+      return false;
+    }
+  }
 }
