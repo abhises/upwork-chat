@@ -29,7 +29,14 @@
 // import sendPaidMedia_test from "./sendPaidMedia_test.js";
 // import updateChatAccess_test from "./updateChatAccess_test.js";
 // import createEventChat_test from "./createEventChat_test.js";
-import updateMembershipTiers_test from "./updateMembershipTiers_test.js";
+// import updateMembershipTiers_test from "./updateMembershipTiers_test.js";
+// import sendExclusiveContent_test from "./sendExclusiveContent_test.js";
+// import startChatTrial_test from "./startChatTrial_test.js";
+// import parseChatMessage_test from "./parseChatMessage_test.js";
+// import storeChatMessage_test from "./testStoreChatMessage.js";
+// import handleIncomingMessage_test from "./handleIncomingMessage_test.js";
+// import runJoinChatTests from "./runJoinChatTests.js";
+import runUpgradeMembershipTests from "./runUpgradeMembershipTests.js";
 export {
   // createChat_test,
   // createChimeChat_test,
@@ -62,5 +69,13 @@ export {
   // sendPaidMedia_test,
   // updateChatAccess_test,
   // createEventChat_test,
-  updateMembershipTiers_test,
+  // updateMembershipTiers_test,
+  // sendExclusiveContent_test,
+  // startChatTrial_test,
+  // parseChatMessage_test,
+  // storeChatMessage_test,
+  // handleIncomingMessage_test,
+  // runJoinChatTests,
+
+  runUpgradeMembershipTests,
 };

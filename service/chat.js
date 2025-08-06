@@ -1739,4 +1739,259 @@ export default class ChatManager {
       return false;
     }
   }
+
+  static async sendExclusiveContent(chatId, payload) {
+    try {
+      const { chatId: cid, payload: pl } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        payload: { value: payload, type: "object", required: true },
+      });
+      const messageId = `msg#${DateTime.generateRelativeTimestamp(
+        "yyyyMMddHHmmssSSS"
+      )}`;
+      // const timestamp = DateTime.now("number");
+      const timestamp = Date.now();
+      const item = {
+        chat_id: cid,
+        message_id: messageId,
+        message_ts: timestamp,
+        content_type: "exclusive",
+        content: pl,
+        content_flag: "exclusive",
+        reactions: {},
+        created_at: DateTime.now(),
+      };
+      await ScyllaDb.putItem("chat_messages", item);
+      return item;
+    } catch (err) {
+      ErrorHandler.add_error("sendExclusiveContent failed", {
+        error: err.message,
+        chatId,
+        payload,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendExclusiveContent",
+        message: err.message,
+        critical: true,
+        data: { chatId, payload },
+      });
+      return null;
+    }
+  }
+  static async startChatTrial(userId, chatId, trialDays = 7) {
+    try {
+      const {
+        userId: uid,
+        chatId: cid,
+        trialDays: days,
+      } = SafeUtils.sanitizeValidate({
+        userId: { value: userId, type: "string", required: true },
+        chatId: { value: chatId, type: "string", required: true },
+        trialDays: {
+          value: trialDays,
+          type: "numeric",
+          required: false,
+          default: 7,
+        },
+      });
+
+      const nowNum = DateTime.now("number");
+      const expiry = nowNum + days * 24 * 60 * 60 * 1000;
+
+      const userSettings = await ScyllaDb.getItem("userSettings", {
+        user_id: uid,
+      });
+      const existingTrials = userSettings?.trial_access || {};
+
+      const updatedTrials = { ...existingTrials, [cid]: expiry };
+
+      const result = await ScyllaDb.updateItem(
+        "userSettings",
+        { user_id: uid },
+        {
+          trial_access: updatedTrials,
+        }
+      );
+
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("startChatTrial failed", {
+        error: err.message,
+        userId,
+        chatId,
+        trialDays,
+      });
+
+      Logger.writeLog({
+        flag: "system_error",
+        action: "startChatTrial",
+        message: err.message,
+        critical: false,
+        data: { userId, chatId, trialDays },
+      });
+
+      return false;
+    }
+  }
+
+  static parseChatMessage(payload) {
+    try {
+      const { content_type: type, content } = SafeUtils.sanitizeValidate({
+        content_type: {
+          value: payload.content_type,
+          type: "string",
+          required: true,
+        },
+        content: { value: payload.content, type: "object", required: true },
+      });
+      switch (type) {
+        case "text":
+          return content.text || "";
+        case "mixed":
+          return (content.elements || []).map((el) => el.text || "").join(" ");
+        case "voice":
+          return `[Audio] ${content.media_url}`;
+        case "product_recommendation":
+          return `[Product] ${content.product_recommendation.name}`;
+        case "exclusive":
+          return `[Exclusive] ${JSON.stringify(content)}`;
+        case "paid_media":
+          return `[Paid Media] ${JSON.stringify(content)}`;
+        default:
+          return JSON.stringify(content);
+      }
+    } catch (err) {
+      Logger.writeLog({
+        flag: "system_error",
+        action: "parseChatMessage",
+        message: err.message,
+      });
+      return "";
+    }
+  }
+
+  static async storeChatMessage(chatId, payload) {
+    try {
+      const { chatId: cid, payload: pl } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        payload: { value: payload, type: "object", required: true },
+      });
+      // Delegate to sendMessage to handle storage
+      return await this.sendMessage(cid, pl);
+    } catch (err) {
+      ErrorHandler.add_error("storeChatMessage failed", {
+        error: err.message,
+        chatId,
+        payload,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "storeChatMessage",
+        message: err.message,
+        critical: false,
+        data: { chatId, payload },
+      });
+      return null;
+    }
+  }
+  static handleIncomingMessage(rawEvent) {
+    try {
+      const { rawEvent: evt } = SafeUtils.sanitizeValidate({
+        rawEvent: { value: rawEvent, type: "string", required: true },
+      });
+      const data = JSON.parse(evt);
+      Logger.writeLog({
+        flag: "info",
+        action: "handleIncomingMessage",
+        message: "Received event",
+        data,
+      });
+      return data;
+    } catch (err) {
+      Logger.writeLog({
+        flag: "system_error",
+        action: "handleIncomingMessage",
+        message: err.message,
+      });
+      return null;
+    }
+  }
+
+  static async joinChat(chatId, userId) {
+    try {
+      const { chatId: cid, userId: uid } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        userId: { value: userId, type: "string", required: true },
+      });
+      // Fetch current participants
+      const res = await ScyllaDb.getItem("chats", { chat_id: cid });
+      const participants = Array.isArray(res.Item?.participants)
+        ? res.Item.participants.slice()
+        : [];
+      if (!participants.includes(uid)) {
+        participants.push(uid);
+        const result = await ScyllaDb.updateItem(
+          "chats",
+          { chat_id: cid },
+          { participants }
+        );
+
+        return result;
+      }
+    } catch (err) {
+      ErrorHandler.add_error("joinChat failed", {
+        error: err.message,
+        chatId,
+        userId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "joinChat",
+        message: err.message,
+        critical: false,
+        data: { chatId, userId },
+      });
+      return false;
+    }
+  }
+  static async upgradeMembership(userId, chatId, newTier) {
+    try {
+      const {
+        userId: uid,
+        chatId: cid,
+        newTier: tier,
+      } = SafeUtils.sanitizeValidate({
+        userId: { value: userId, type: "string", required: true },
+        chatId: { value: chatId, type: "string", required: true },
+        newTier: { value: newTier, type: "string", required: true },
+      });
+      // Fetch existing membership info
+      const res = await ScyllaDb.getItem("userSettings", { user_id: uid });
+      console.log("res", res);
+      const memberships = res.Item?.memberships || {};
+      memberships[cid] = tier;
+      const result = await ScyllaDb.updateItem(
+        "userSettings",
+        { user_id: uid },
+        { memberships }
+      );
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("upgradeMembership failed", {
+        error: err.message,
+        userId,
+        chatId,
+        newTier,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "upgradeMembership",
+        message: err.message,
+        critical: false,
+        data: { userId, chatId, newTier },
+      });
+      return false;
+    }
+  }
 }
