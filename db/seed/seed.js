@@ -95,6 +95,11 @@ async function seedChatMessagesTable() {
       sender_id: users[(i + 2) % users.length],
       content: `Hello from seeded message ${i}`,
       created_at: new Date().toISOString(), // ✅ S type
+      edited_at: null, // ✅ S type
+      deleted_at: null, // ✅ S type
+      isUrgent: false,
+      is_pinned: false,
+      pinned_at: null,
     };
 
     try {

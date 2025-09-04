@@ -1113,14 +1113,15 @@ export default class ChatManager {
         { IndexName: "MessageIdIndex" }
       );
 
-      if (!messages || messages.length === 0) {
-        throw new Error(
-          `Message not found for chat_id=${cid} & message_id=${mid}`
-        );
-      }
+      // if (!messages || messages.length === 0) {
+      //   throw new Error(
+      //     `Message not found for chat_id=${cid} & message_id=${mid}`
+      //   );
+      // }
 
       const message = messages[0];
       const timestamp = DateTime.now();
+      console.log("Editing message at", timestamp);
 
       // 🔵 Step 2: Update using PK and SK (chat_id + message_ts)
       const result = await ScyllaDb.updateItem(
@@ -1990,6 +1991,265 @@ export default class ChatManager {
         message: err.message,
         critical: false,
         data: { userId, chatId, newTier },
+      });
+      return false;
+    }
+  }
+
+  static async deleteMessage(chatId, messageId) {
+    try {
+      const { chatId: cid, messageId: mid } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+      });
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid} & message_id=${mid}`
+        );
+      }
+
+      console.log("messages to delete", messages);
+
+      const message = messages[0];
+      const timestamp = DateTime.now();
+      console.log("Editing message at", timestamp);
+
+      const result = await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts,
+        },
+        {
+          deleted_at: timestamp,
+        }
+      );
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("deleteMessage failed", {
+        error: err.message,
+        chatId,
+        messageId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "deleteMessage",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId },
+      });
+      return false;
+    }
+  }
+
+  static async flagMessageUrgent(chatId, messageId, isUrgent) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        isUrgent: flag,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        isUrgent: { value: isUrgent, type: "boolean", required: true },
+      });
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid} & message_id=${mid}`
+        );
+      }
+
+      // console.log("messages to delete", messages);
+
+      const message = messages[0];
+      const timestamp = DateTime.now();
+      console.log("Editing message at", timestamp);
+
+      const result = await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts,
+        },
+        {
+          isUrgent: true,
+        }
+      );
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("flagMessageUrgent failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        isUrgent,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "flagMessageUrgent",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, isUrgent },
+      });
+      return false;
+    }
+  }
+
+  static async pinMessage(chatId, messageId, pin = true) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        pin: shouldPin,
+      } = SafeUtils.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        pin: { value: pin, type: "boolean", required: false, default: true },
+      });
+      const messages = await ScyllaDb.query(
+        "chat_messages",
+        "chat_id = :cid AND message_id = :mid",
+        { ":cid": cid, ":mid": mid },
+        { IndexName: "MessageIdIndex" }
+      );
+
+      if (!messages || messages.length === 0) {
+        throw new Error(
+          `Message not found for chat_id=${cid} & message_id=${mid}`
+        );
+      }
+
+      // console.log("messages to delete", messages);
+
+      const message = messages[0];
+      const timestamp = DateTime.now();
+      console.log("Editing message at", timestamp);
+      const result = await ScyllaDb.updateItem(
+        "chat_messages",
+        {
+          chat_id: cid,
+          message_ts: message.message_ts,
+        },
+        {
+          is_pinned: pin,
+          pinned_at: timestamp,
+        }
+      );
+      return result;
+    } catch (err) {
+      ErrorHandler.add_error("pinMessage failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        pin,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "pinMessage",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, pin },
+      });
+      return false;
+    }
+  }
+
+  static sendTypingIndicator(chatId, userId, isTyping) {
+    try {
+      const {
+        chatId: cid,
+        userId: uid,
+        isTyping: typing,
+      } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        userId: { value: userId, type: "string", required: true },
+        isTyping: {
+          value: isTyping,
+          type: "boolean",
+          required: false,
+          default: true,
+        },
+      });
+      // Placeholder: publish to WebSocket channel `chat:${cid}:typing`
+      // WebSocket.publish(`chat:${cid}:typing`, { userId: uid, isTyping: typing });
+      Logger.writeLog({
+        flag: "info",
+        action: "sendTypingIndicator",
+        message: `User ${uid} isTyping=${typing} in chat ${cid}`,
+      });
+      return true;
+    } catch (err) {
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendTypingIndicator",
+        message: err.message,
+      });
+      return false;
+    }
+  }
+
+  static renderAnimatedEmoji(emoji) {
+    // Front‑end only; return a placeholder wrapper
+    Logger.writeLog({
+      flag: "info",
+      action: "renderAnimatedEmoji",
+      message: `Rendered animated emoji for "${emoji}"`,
+    });
+    return `<span class="animated-emoji" data-emoji="${emoji}">${emoji}</span>`;
+  }
+
+  static showChatErrorMessage(chatId, error) {
+    // Front‑end only; display error in UI
+    const { chatId: cid, error: errMsg } = Formatting.sanitizeValidate({
+      chatId: { value: chatId, type: "string", required: true },
+      error: { value: error, type: "string", required: true },
+    });
+    Logger.writeLog({
+      flag: "error",
+      action: "showChatErrorMessage",
+      message: `Chat ${cid} error: ${errMsg}`,
+    });
+    // e.g., UI.showError(chatId, error);
+    return null;
+  }
+  static subscribeToTyping(chatId, handler) {
+    try {
+      const { chatId: cid, handler: cb } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        handler: { value: handler, type: "object", required: true }, // expecting a function
+      });
+      // Placeholder: subscribe to Redis pub/sub or WebSocket channel
+      // e.g., Redis.subscribe(`chat:${cid}:typing`, msg => cb(JSON.parse(msg)));
+      Logger.writeLog({
+        flag: "info",
+        action: "subscribeToTyping",
+        message: `Subscribed to typing for chat ${cid}`,
+      });
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("subscribeToTyping failed", {
+        error: err.message,
+        chatId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "subscribeToTyping",
+        message: err.message,
+        critical: false,
+        data: { chatId },
       });
       return false;
     }
