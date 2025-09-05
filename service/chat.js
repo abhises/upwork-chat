@@ -2254,4 +2254,275 @@ export default class ChatManager {
       return false;
     }
   }
+  static async sendPushNotification(chatId, messageId, userId) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        userId: uid,
+      } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        userId: { value: userId, type: "string", required: true },
+      });
+      // Placeholder: send push via your push service
+      // e.g., await PushService.sendNotification(uid, { chatId: cid, messageId: mid });
+      Logger.writeLog({
+        flag: "info",
+        action: "sendPushNotification",
+        message: `Push notification sent to user ${uid} for message ${mid} in chat ${cid}`,
+      });
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("sendPushNotification failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        userId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendPushNotification",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, userId },
+      });
+      return false;
+    }
+  }
+
+  static async sendFallbackNotification(chatId, messageId, userId, channels) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        userId: uid,
+        channels: ch,
+      } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        userId: { value: userId, type: "string", required: true },
+        channels: { value: channels, type: "array", required: true },
+      });
+      // Placeholder: loop channels and send notifications
+      for (const channel of ch) {
+        // e.g., if (channel === 'email') NotificationService.email(uid, mid);
+      }
+      Logger.writeLog({
+        flag: "info",
+        action: "sendFallbackNotification",
+        message: `Sent fallback notifications via ${JSON.stringify(ch)}`,
+        data: { chatId: cid, messageId: mid, userId: uid },
+      });
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("sendFallbackNotification failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        userId,
+        channels,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendFallbackNotification",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, userId, channels },
+      });
+      return false;
+    }
+  }
+
+  static async sendEmailNotification(chatId, messageId, userId) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        userId: uid,
+      } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        userId: { value: userId, type: "string", required: true },
+      });
+      // Placeholder: send email via your email service
+      // e.g., await EmailService.sendNewMessageAlert(uid, cid, mid);
+      Logger.writeLog({
+        flag: "info",
+        action: "sendEmailNotification",
+        message: `Email notification sent to user ${uid} for message ${mid} in chat ${cid}`,
+      });
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("sendEmailNotification failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        userId,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "sendEmailNotification",
+        message: err.message,
+        critical: false,
+        data: { chatId, messageId, userId },
+      });
+      return false;
+    }
+  }
+  static async processMessagePayment(
+    chatId,
+    messageId,
+    userId,
+    paymentDetails
+  ) {
+    try {
+      const {
+        chatId: cid,
+        messageId: mid,
+        userId: uid,
+        paymentDetails: pd,
+      } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messageId: { value: messageId, type: "string", required: true },
+        userId: { value: userId, type: "string", required: true },
+        paymentDetails: {
+          value: paymentDetails,
+          type: "object",
+          required: true,
+        },
+      });
+      // Placeholder: call external payment gateway
+      // e.g., await PaymentGateway.charge(uid, pd);
+      Logger.writeLog({
+        flag: "info",
+        action: "processMessagePayment",
+        message: `Processed payment for user ${uid} on message ${mid} in chat ${cid}`,
+        data: { paymentDetails: pd },
+      });
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("processMessagePayment failed", {
+        error: err.message,
+        chatId,
+        messageId,
+        userId,
+        paymentDetails,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "processMessagePayment",
+        message: err.message,
+        critical: true,
+        data: { chatId, messageId, userId, paymentDetails },
+      });
+      return false;
+    }
+  }
+
+  static async processEventPayment(chatId, userId, paymentDetails) {
+    try {
+      const {
+        chatId: cid,
+        userId: uid,
+        paymentDetails: pd,
+      } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        userId: { value: userId, type: "string", required: true },
+        paymentDetails: {
+          value: paymentDetails,
+          type: "object",
+          required: true,
+        },
+      });
+      // Placeholder: call external payment system
+      // e.g., await PaymentGateway.charge(uid, pd);
+      Logger.writeLog({
+        flag: "info",
+        action: "processEventPayment",
+        message: `Processed event payment for user ${uid} in chat ${cid}`,
+        data: { paymentDetails: pd },
+      });
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("processEventPayment failed", {
+        error: err.message,
+        chatId,
+        userId,
+        paymentDetails,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "processEventPayment",
+        message: err.message,
+        critical: true,
+        data: { chatId, userId, paymentDetails },
+      });
+      return false;
+    }
+  }
+
+  static async deliverBatchMessages(chatId, messages) {
+    try {
+      const { chatId: cid, messages: msgs } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        messages: { value: messages, type: "array", required: true },
+      });
+      // Placeholder: chunk messages and send via WebSocket or push
+      // e.g., const chunks = chunkArray(msgs, 50);
+      // for (const chunk of chunks) WebSocket.publish(`chat:${cid}`, chunk);
+      Logger.writeLog({
+        flag: "info",
+        action: "deliverBatchMessages",
+        message: `Delivered ${msgs.length} messages in batch to chat ${cid}`,
+      });
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("deliverBatchMessages failed", {
+        error: err.message,
+        chatId,
+        messages,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "deliverBatchMessages",
+        message: err.message,
+        critical: false,
+        data: { chatId, messages },
+      });
+      return false;
+    }
+  }
+
+  static async cacheChatData(chatId, data) {
+    try {
+      const { chatId: cid, data: payload } = Formatting.sanitizeValidate({
+        chatId: { value: chatId, type: "string", required: true },
+        data: { value: data, type: "object", required: true },
+      });
+      // Placeholder: write to Redis
+      // e.g., await Redis.set(`chat:${cid}:cache`, JSON.stringify(payload));
+      Logger.writeLog({
+        flag: "info",
+        action: "cacheChatData",
+        message: `Cached data for chat ${cid}`,
+        data: payload,
+      });
+      return true;
+    } catch (err) {
+      ErrorHandler.add_error("cacheChatData failed", {
+        error: err.message,
+        chatId,
+        data,
+      });
+      Logger.writeLog({
+        flag: "system_error",
+        action: "cacheChatData",
+        message: err.message,
+        critical: false,
+        data: { chatId, data },
+      });
+      return false;
+    }
+  }
 }
